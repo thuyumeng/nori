@@ -21,6 +21,7 @@
 #include <nori/mesh.h>
 #include <vector>
 #include <memory>
+#include <stdio.h>
 
 NORI_NAMESPACE_BEGIN
 
@@ -66,6 +67,7 @@ using OctTreeNodePtr = std::shared_ptr<OctTreeNode>;
 class OctTree {
     OctTreeNodePtr root;
     MeshArray m_mesh_array;
+    FILE *m_log_file;
 public:
     void build(const BoundingBox3f& bounding_box, const MeshArray &meshes);
     OctTreeNodePtr make_tree(const BoundingBox3f& bounding_box, TriArray triangles, const MeshArray &meshes);
@@ -120,6 +122,7 @@ public:
 
 private:
     MeshArray     m_mesh_array;
+    Mesh * m_mesh;
     BoundingBox3f m_bbox;           ///< Bounding box of the entire scene
     OctTree m_octtree;
 };

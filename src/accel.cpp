@@ -18,11 +18,14 @@
 
 #include <nori/accel.h>
 #include <Eigen/Geometry>
+#include <iostream>
+#include <fstream>
 
 NORI_NAMESPACE_BEGIN
 
 void OctTree::build(const BoundingBox3f& bouding_box, const MeshArray &meshes)
 {
+    m_log_file = fopen("test.log", "w");
     m_mesh_array = meshes;
     // 将mesh TriangeIndex 取出来
     size_t tri_cnt = 0;
@@ -48,20 +51,20 @@ void OctTree::build(const BoundingBox3f& bouding_box, const MeshArray &meshes)
 OctTreeNodePtr OctTree::make_tree(const BoundingBox3f& bounding_box, TriArray triangles, const MeshArray &meshes)
 {
     if(triangles.size() <= 0)
+    {
         return nullptr;
+    }
     
     OctTreeNodePtr node_ptr = std::make_shared<OctTreeNode>();
 
     // 如果triangles的数量小于10 则创建leaf node
-    size_t leaf_cnts = 10;
-    if(triangles.size() < leaf_cnts)
+    size_t leaf_cnts = 100;
+    if(triangles.size() <= leaf_cnts)
     {
         node_ptr->bounding_box = bounding_box;
         node_ptr->m_tri_arr = triangles;
         return node_ptr;
     }
-    std::cout << "check point 1" << std::endl;
-    std::cout << triangles.size() << std::endl;
     // 生成8个子节点和8个和子节点相交的triangle list，递归调用 make_tree
     Point3f min_pt = bounding_box.min;
     Point3f max_pt = bounding_box.max;
@@ -184,13 +187,18 @@ bool OctTree::nodeRayIntersect(OctTreeNodePtr node, Ray3f &ray, float &u, float 
     {
         return foundIntersection;
     }
+
+
+    if (!node->bounding_box.rayIntersect(ray))
+        return false;
+    
     if (node->is_leaf())
     {
         for (auto tri_itr=node->m_tri_arr.begin(); tri_itr != node->m_tri_arr.end(); tri_itr++)
         {
             int mesh_idx = tri_itr->mesh_idx;
             Mesh *mesh = m_mesh_array.at(mesh_idx);
-            float tmp_u, tmp_v, tmp_t = u, v, t;
+            float tmp_u, tmp_v, tmp_t;
             bool is_intersect = mesh->rayIntersect(
                 tri_itr->triangle_idx,
                 ray,
@@ -211,9 +219,6 @@ bool OctTree::nodeRayIntersect(OctTreeNodePtr node, Ray3f &ray, float &u, float 
         }
         return foundIntersection;
     }
-
-    if (!node->bounding_box.rayIntersect(ray))
-        return false;
     
     for (auto node_itr = node->m_sub_nodes.begin(); node_itr != node->m_sub_nodes.end(); node_itr++)
     {
@@ -244,10 +249,12 @@ bool OctTree::rayIntersect(Ray3f &ray, float &u, float &v, float &t, TriangleInd
         t,
         tri_idx
     );
+    fclose(m_log_file);
     return foundIntersection;
 }
 
 void Accel::addMesh(Mesh *mesh) {
+    m_mesh = mesh;
     m_mesh_array.push_back(mesh);
     m_bbox.expandBy(mesh->getBoundingBox());
 }
@@ -341,20 +348,20 @@ bool Accel::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowRay) c
     Ray3f ray(ray_); /// Make a copy of the ray (we will need to update its '.maxt' value)
 
     // traverse the octTree
-    // for (uint32_t idx = 0; idx < m_mesh->getTriangleCount(); ++idx) {
-    //     float u, v, t;
-    //     if (m_mesh->rayIntersect(idx, ray, u, v, t)) {
-    //         /* An intersection was found! Can terminate
-    //            immediately if this is a shadow ray query */
-    //         if (shadowRay)
-    //             return true;
-    //         ray.maxt = its.t = t;
-    //         its.uv = Point2f(u, v);
-    //         its.mesh = m_mesh;
-    //         f = idx;
-    //         foundIntersection = true;
-    //     }
-    // }
+//     for (uint32_t idx = 0; idx < m_mesh->getTriangleCount(); ++idx) {
+//         float u, v, t;
+//         if (m_mesh->rayIntersect(idx, ray, u, v, t)) {
+//             /* An intersection was found! Can terminate
+//                immediately if this is a shadow ray query */
+//             if (shadowRay)
+//                 return true;
+//             ray.maxt = its.t = t;
+//             its.uv = Point2f(u, v);
+//             its.mesh = m_mesh;
+//             f = idx;
+//             foundIntersection = true;
+//         }
+//     }
     float u, v, t;
     TriangleIndex tri_idx;
     if (m_octtree.rayIntersect(ray, u, v, t, tri_idx))
